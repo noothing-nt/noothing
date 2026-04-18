@@ -1,205 +1,416 @@
 import { useState, useRef } from 'react';
-import ReadReceipt from '../shared/ReadReceipt';
-import ViewOnceImage from './ViewOnceImage';
+import { useSocketStore } from '../../store/useSocketStore';
+import { useChatStore }   from '../../store/useChatStore';
+import ReplyPreview from './ReplyPreview';
 
-function formatTime(dateStr) {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+const EMOJIS = ['❤️', '😂', '😮', '😢', '👍', '🔥', '👏', '😍'];
 
-export default function MessageBubble({
-  message,
-  isMine,
-  showAvatar,
-  isRoom,
-  onContextMenu,
-  onLongPress,
-  currentUser,
-  socket,
-}) {
-  const [imgLoaded, setImgLoaded] = useState(false);
+export default function MessageBubble({ message, isMine, chatUserId }) {
+  const { emit }        = useSocketStore();
+  const { updateMessage, markMessageDeleted, setReplyTo } = useChatStore();
+  const [showActions, setShowActions] = useState(false);
+  const [isEditing, setIsEditing]     = useState(false);
+  const [editText, setEditText]       = useState(message.text);
+  const [hovered, setHovered]         = useState(false);
   const longPressTimer = useRef(null);
-
-  const handleTouchStart = (e) => {
-    const touch = e.touches[0];
-    longPressTimer.current = setTimeout(() => {
-      onLongPress?.({ x: touch.clientX, y: touch.clientY, isMobile: true });
-    }, 500);
-  };
-  const handleTouchEnd = () => clearTimeout(longPressTimer.current);
 
   if (message.isDeleted) {
     return (
-      <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+      <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} px-4 mb-0.5`}>
         <div
-          className="px-4 py-2.5 rounded-2xl text-xs text-txt-muted italic
-                     flex items-center gap-2"
+          className="px-3.5 py-2 rounded-2xl text-[12px] italic"
           style={{
-            background: 'rgba(255,255,255,0.02)',
-            border: '1px solid rgba(255,255,255,0.06)',
+            background: 'rgba(255,255,255,0.03)',
+            border:     '1px solid rgba(255,255,255,0.06)',
+            color:      '#404050',
           }}
         >
-          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none"
-            viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-          </svg>
-          Message deleted
+          🗑 Message deleted
         </div>
       </div>
     );
   }
 
-  const hasImage = !!message.image?.url;
-  const hasText  = !!message.text?.trim();
-  const isPending = !message._id;
+  const handleReact = (emoji) => {
+    emit('reaction:add', { messageId: message._id, emoji, recipientId: chatUserId });
+    setShowActions(false);
+  };
+
+  const handleDelete = () => {
+    emit('message:delete', { messageId: message._id, recipientId: chatUserId });
+    markMessageDeleted(message._id);
+    setShowActions(false);
+  };
+
+  const handleEdit = () => {
+    if (!editText.trim()) return;
+    emit('message:edit', { messageId: message._id, text: editText, recipientId: chatUserId });
+    updateMessage(message._id, { text: editText, isEdited: true });
+    setIsEditing(false);
+    setShowActions(false);
+  };
+
+  const handleReply = () => {
+    setReplyTo({
+      messageId:      message._id,
+      text:           message.text,
+      senderUsername: message.sender?.username,
+      messageType:    message.messageType,
+    });
+    setShowActions(false);
+  };
+
+  const readIcon = () => {
+    if (!isMine) return null;
+    if (message._isOptimistic)
+      return <span style={{ color: '#404050', fontSize: 10 }}>⏳</span>;
+    if (message.status === 'read')
+      return <span style={{ color: '#6366f1', fontSize: 10 }}>✓✓</span>;
+    if (message.status === 'delivered')
+      return <span style={{ color: '#505060', fontSize: 10 }}>✓✓</span>;
+    return <span style={{ color: '#404050', fontSize: 10 }}>✓</span>;
+  };
+
+  const formatTime = (date) => {
+    return new Date(date).toLocaleTimeString('en-US', {
+      hour:   '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  };
+
+  const renderContent = () => {
+    if (message.messageType === 'image' && message.image?.url) {
+      return (
+        <a href={message.image.url} target="_blank" rel="noreferrer"
+          className="block" onClick={(e) => e.stopPropagation()}>
+          <img
+            src={message.image.url}
+            alt="Image"
+            className="rounded-xl max-w-[280px] object-cover block"
+            style={{ maxHeight: 320 }}
+            loading="lazy"
+          />
+        </a>
+      );
+    }
+    if (message.messageType === 'sticker' && message.sticker?.url) {
+      return (
+        <img
+          src={message.sticker.url}
+          alt="Sticker"
+          className="w-24 h-24 object-contain"
+          loading="lazy"
+        />
+      );
+    }
+    if (message.messageType === 'file' && message.file?.url) {
+      return (
+        <a
+          href={message.file.url}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-2.5 p-3 rounded-xl transition-colors"
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border:     '1px solid rgba(255,255,255,0.08)',
+            color:      '#a5b4fc',
+            minWidth:   '180px',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(99,102,241,0.15)' }}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor" strokeWidth={2} style={{ color: '#6366f1' }}>
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[12px] font-semibold truncate" style={{ color: '#e0e0e0' }}>
+              {message.file.name || 'File'}
+            </p>
+            {message.file.size > 0 && (
+              <p className="text-[10px]" style={{ color: '#505060' }}>
+                {(message.file.size / 1024).toFixed(0)} KB
+              </p>
+            )}
+          </div>
+        </a>
+      );
+    }
+    if (isEditing) {
+      return (
+        <div className="flex flex-col gap-2 min-w-[200px]">
+          <textarea
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            className="text-[14px] resize-none outline-none"
+            style={{
+              background:  'transparent',
+              border:      'none',
+              color:       isMine ? '#ffffff' : '#e0e0e0',
+              caretColor:  '#a5b4fc',
+              minWidth:    '160px',
+              lineHeight:  '1.5',
+            }}
+            rows={2}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEdit(); }
+              if (e.key === 'Escape') { setIsEditing(false); setEditText(message.text); }
+            }}
+          />
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => { setIsEditing(false); setEditText(message.text); }}
+              className="text-[11px] px-2 py-1 rounded-lg"
+              style={{ color: '#505060', background: 'rgba(255,255,255,0.05)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleEdit}
+              className="text-[11px] px-2 py-1 rounded-lg font-semibold"
+              style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <p
+        className="text-[14px] leading-relaxed whitespace-pre-wrap break-words"
+        style={{ color: isMine ? '#ffffff' : '#e0e0e0' }}
+      >
+        {message.text}
+      </p>
+    );
+  };
 
   return (
-    <div className={`flex items-end gap-2.5
-                     ${isMine ? 'justify-end msg-mine' : 'justify-start msg-other'}`}>
-
-      {/* Other user avatar */}
+    <div
+      className={`flex ${isMine ? 'justify-end' : 'justify-start'} px-4 mb-0.5`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); }}
+    >
+      {/* Avatar for other's messages */}
       {!isMine && (
-        <div className="flex-shrink-0 w-7 h-7 mb-0.5">
-          {showAvatar ? (
-            <div
-              className="w-7 h-7 rounded-full overflow-hidden flex items-center
-                         justify-center"
-              style={{
-                background: 'linear-gradient(135deg, #1c1c2e, #13131f)',
-                border: '1px solid rgba(99,102,241,0.2)',
-              }}
-            >
-              {message.sender?.avatar?.url ? (
-                <img src={message.sender.avatar.url} alt=""
-                  className="w-full h-full object-cover" />
-              ) : (
-                <span
-                  className="text-[10px] font-bold"
-                  style={{
-                    background: 'linear-gradient(135deg, #a5b4fc, #6366f1)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                  }}
-                >
-                  {message.sender?.username?.[0]?.toUpperCase()}
-                </span>
-              )}
-            </div>
-          ) : null}
+        <div className="w-7 h-7 flex-shrink-0 mt-auto mb-1 mr-2">
+          {/* Show avatar only for last message in group — simplified */}
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
+            style={{
+              background: 'linear-gradient(135deg, #6366f1, #4338ca)',
+              color:      '#fff',
+            }}
+          >
+            {(message.sender?.username || '?')[0].toUpperCase()}
+          </div>
         </div>
       )}
 
-      {/* Bubble wrapper */}
-      <div className={`max-w-[72%] md:max-w-[60%] flex flex-col
-                      ${isMine ? 'items-end' : 'items-start'}`}>
+      <div className={`relative max-w-[65%] flex flex-col
+        ${isMine ? 'items-end' : 'items-start'}`}>
 
-        {/* Room sender name */}
-        {isRoom && !isMine && showAvatar && (
-          <span
-            className="text-[11px] font-semibold mb-1 ml-1 tracking-wide"
-            style={{
-              background: 'linear-gradient(135deg, #a5b4fc, #818cf8)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            {message.sender?.username}
-          </span>
+        {/* Reply Preview */}
+        {message.replyTo?.messageId && (
+          <ReplyPreview replyTo={message.replyTo} isMine={isMine} />
         )}
 
-        {/* The bubble */}
+        {/* Bubble */}
         <div
-          onContextMenu={onContextMenu}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          onTouchMove={handleTouchEnd}
-          className={`
-            relative rounded-2xl overflow-hidden cursor-pointer select-none
-            transition-all duration-150 active:opacity-80 active:scale-[0.98]
-            ${isMine ? 'rounded-br-sm' : 'rounded-bl-sm'}
-            ${isPending ? 'opacity-60' : 'opacity-100'}
-          `}
-          style={
-            hasImage
-              ? {
-                  background: '#161620',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-                }
-              : isMine
-              ? {
-                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 60%, #4338ca 100%)',
-                  boxShadow: '0 4px 20px rgba(99,102,241,0.25), 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15)',
-                }
-              : {
-                  background: 'linear-gradient(135deg, #1c1c2e 0%, #161620 100%)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-                }
-          }
+          className="relative px-4 py-2.5 cursor-pointer select-text"
+          style={{
+            borderRadius: isMine
+              ? '18px 18px 4px 18px'
+              : '18px 18px 18px 4px',
+            background: isMine
+              ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)'
+              : 'rgba(255,255,255,0.05)',
+            border: isMine
+              ? 'none'
+              : '1px solid rgba(255,255,255,0.07)',
+            boxShadow: isMine
+              ? '0 4px 16px rgba(99,102,241,0.2)'
+              : '0 2px 8px rgba(0,0,0,0.2)',
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setShowActions(true);
+          }}
+          onDoubleClick={() => handleReply()}
         >
-          {/* View once */}
-          {hasImage && message.isViewOnce ? (
-            <ViewOnceImage message={message} isMine={isMine} socket={socket} />
-          ) : hasImage ? (
-            <div className="relative">
-              {!imgLoaded && (
-                <div className="absolute inset-0 shimmer bg-surface flex items-center
-                                justify-center min-w-[180px] min-h-[120px]">
-                  <svg className="w-6 h-6 text-txt-muted" fill="none"
-                    viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-              )}
-              <img
-                src={message.image.url}
-                alt="Shared"
-                onLoad={() => setImgLoaded(true)}
-                className={`max-w-full max-h-72 object-cover block
-                            transition-opacity duration-300
-                            ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
-              />
-              {hasText && (
-                <p className="px-3.5 py-2.5 text-sm text-txt-primary
-                              whitespace-pre-wrap break-words leading-relaxed">
-                  {message.text}
-                </p>
-              )}
-            </div>
-          ) : (
-            hasText && (
-              <p className={`px-4 py-2.5 text-sm leading-relaxed
-                             whitespace-pre-wrap break-words
-                             ${isMine ? 'text-white' : 'text-txt-primary'}`}>
-                {message.text}
-              </p>
-            )
-          )}
+          {renderContent()}
+
+          {/* Time + status */}
+          <div
+            className={`flex items-center gap-1.5 mt-1
+              ${isMine ? 'justify-end' : 'justify-start'}`}
+          >
+            <span
+              className="text-[10px]"
+              style={{ color: isMine ? 'rgba(255,255,255,0.45)' : '#404050' }}
+            >
+              {formatTime(message.createdAt)}
+            </span>
+            {message.isEdited && (
+              <span
+                className="text-[10px] italic"
+                style={{ color: isMine ? 'rgba(255,255,255,0.35)' : '#383848' }}
+              >
+                edited
+              </span>
+            )}
+            {readIcon()}
+          </div>
         </div>
 
-        {/* Meta row */}
-        <div className={`flex items-center gap-1.5 mt-1 px-1
-                        ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
-          <span className="text-txt-muted text-[11px] font-medium">
-            {formatTime(message.createdAt)}
-          </span>
-          {message.isEdited && (
-            <span className="text-txt-muted text-[10px] italic">edited</span>
-          )}
-          {isMine && !isPending && (
-            <ReadReceipt status={message.status} />
-          )}
-          {isPending && (
-            <div className="w-3 h-3 rounded-full border border-txt-muted/40
-                            animate-pulse-soft" />
-          )}
-        </div>
+        {/* Reactions */}
+        {message.reactions?.length > 0 && (
+          <div
+            className={`flex flex-wrap gap-1 mt-1
+              ${isMine ? 'justify-end' : 'justify-start'}`}
+          >
+            {message.reactions.map((r, i) => (
+              <button
+                key={i}
+                onClick={() => handleReact(r.emoji)}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full
+                           text-[12px] transition-all"
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border:     '1px solid rgba(255,255,255,0.08)',
+                }}
+                title={r.username}
+              >
+                {r.emoji}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Hover quick react */}
+        {hovered && !showActions && !isEditing && (
+          <div
+            className={`absolute flex items-center gap-1 px-2 py-1.5 rounded-2xl
+                        transition-all animate-fade-in z-20
+                        ${isMine ? 'left-0 -translate-x-full pr-2' : 'right-0 translate-x-full pl-2'}`}
+            style={{ top: '50%', transform: `translateY(-50%) ${isMine ? 'translateX(-100%)' : 'translateX(100%)'}` }}
+          >
+            {EMOJIS.slice(0, 5).map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => handleReact(emoji)}
+                className="text-[16px] hover:scale-125 transition-transform leading-none"
+              >
+                {emoji}
+              </button>
+            ))}
+            {/* More actions */}
+            <button
+              onClick={() => setShowActions(true)}
+              className="w-6 h-6 flex items-center justify-center rounded-lg ml-0.5"
+              style={{
+                background: 'rgba(255,255,255,0.08)',
+                color:      '#606070',
+              }}
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="5"  r="1.5" />
+                <circle cx="12" cy="12" r="1.5" />
+                <circle cx="12" cy="19" r="1.5" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Context Menu */}
+        {showActions && (
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setShowActions(false)}
+            />
+            <div
+              className={`absolute z-50 py-1 rounded-2xl overflow-hidden
+                          animate-scale-in min-w-[180px]
+                          ${isMine ? 'right-0' : 'left-0'}
+                          bottom-full mb-2`}
+              style={{
+                background: 'rgba(13,13,20,0.99)',
+                border:     '1px solid rgba(255,255,255,0.08)',
+                boxShadow:  '0 20px 60px rgba(0,0,0,0.7)',
+              }}
+            >
+              {/* Top shimmer */}
+              <div style={{
+                height: 1,
+                background: 'linear-gradient(90deg, transparent, rgba(99,102,241,0.3), transparent)',
+              }} />
+
+              {/* Quick emoji row */}
+              <div
+                className="flex items-center gap-1 px-3 py-2.5"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+              >
+                {EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => handleReact(emoji)}
+                    className="text-[18px] hover:scale-125 transition-transform"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+
+              {/* Actions */}
+              {[
+                {
+                  icon: '↩️',
+                  label: 'Reply',
+                  action: handleReply,
+                  color: '#d0d0e0',
+                },
+                ...(isMine && message.messageType === 'text' ? [{
+                  icon: '✏️',
+                  label: 'Edit',
+                  action: () => { setIsEditing(true); setShowActions(false); },
+                  color: '#d0d0e0',
+                }] : []),
+                ...(isMine ? [{
+                  icon: '🗑',
+                  label: 'Delete',
+                  action: handleDelete,
+                  color: '#f87171',
+                }] : []),
+              ].map((opt) => (
+                <button
+                  key={opt.label}
+                  onClick={opt.action}
+                  className="w-full flex items-center gap-3 px-4 py-2.5
+                             text-left text-[13px] transition-colors"
+                  style={{ color: opt.color }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <span>{opt.icon}</span>
+                  <span className="font-medium">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

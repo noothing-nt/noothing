@@ -1,63 +1,32 @@
 const mongoose = require('mongoose');
 
-let reconnectTimer = null;
+let isConnected = false;
 
-const connectDB = async () => {
+exports.connectDB = async () => {
+  if (isConnected) return;
+
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI, {
+    mongoose.set('strictQuery', true);
+
+    await mongoose.connect(process.env.MONGO_URI, {
       serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS:          45000,
-      connectTimeoutMS:         10000,
-      heartbeatFrequencyMS:     10000,
-      retryWrites:              true,
+      socketTimeoutMS: 45000,
     });
 
-    console.log(`✅ MongoDB connected: ${conn.connection.host}`);
+    isConnected = true;
+    console.log('✅ MongoDB connected.');
 
-    // Clear any pending reconnect timer
-    if (reconnectTimer) {
-      clearInterval(reconnectTimer);
-      reconnectTimer = null;
-    }
+    mongoose.connection.on('disconnected', () => {
+      console.warn('⚠️  MongoDB disconnected. Attempting reconnect...');
+      isConnected = false;
+      setTimeout(exports.connectDB, 5000);
+    });
 
+    mongoose.connection.on('error', (err) => {
+      console.error('❌ MongoDB error:', err.message);
+    });
   } catch (err) {
-    console.error(`❌ MongoDB connection error: ${err.message}`);
-    console.log('⏳ Retrying in 10 seconds...');
-    setTimeout(connectDB, 10000);
+    console.error('❌ MongoDB connection failed:', err.message);
+    setTimeout(exports.connectDB, 5000);
   }
 };
-
-// Handle connection events
-mongoose.connection.on('connected', () => {
-  console.log('🟢 Mongoose connected');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('🔴 Mongoose error:', err.message);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.warn('🟡 Mongoose disconnected — attempting reconnect...');
-  setTimeout(connectDB, 5000);
-});
-
-// Force reconnect every 10 minutes (prevents free-tier socket close)
-const startReconnectInterval = () => {
-  reconnectTimer = setInterval(async () => {
-    if (mongoose.connection.readyState !== 1) {
-      console.log('🔄 Scheduled DB reconnect...');
-      await connectDB();
-    } else {
-      // Ping DB to keep connection alive
-      try {
-        await mongoose.connection.db.admin().ping();
-        console.log('💓 DB heartbeat OK');
-      } catch (err) {
-        console.warn('💔 DB heartbeat failed — reconnecting...');
-        await connectDB();
-      }
-    }
-  }, 10 * 60 * 1000); // Every 10 minutes
-};
-
-module.exports = { connectDB, startReconnectInterval };

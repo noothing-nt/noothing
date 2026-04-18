@@ -1,9 +1,18 @@
 import { useState } from 'react';
-import LoginForm from '../components/auth/LoginForm';
+import { Navigate } from 'react-router-dom';
+import { useAuthStore } from '../store/useAuthStore';
+import LoginForm    from '../components/auth/LoginForm';
 import RegisterForm from '../components/auth/RegisterForm';
+import ForgotForm   from '../components/auth/ForgotForm';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 
 export default function AuthPage() {
-  const [mode, setMode] = useState('login');
+  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'forgot'
+  const { user, isCheckingAuth } = useAuthStore();
+
+  // Redirect if already authenticated
+  if (isCheckingAuth) return <LoadingSpinner fullScreen />;
+  if (user)           return <Navigate to="/" replace />;
 
   return (
     <div className="min-h-[100dvh] mesh-bg flex items-center justify-center p-4 relative overflow-hidden">
@@ -52,8 +61,8 @@ export default function AuthPage() {
               <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
                 <defs>
                   <linearGradient id="logoGrad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#a5b4fc" />
-                    <stop offset="50%" stopColor="#6366f1" />
+                    <stop offset="0%"   stopColor="#a5b4fc" />
+                    <stop offset="50%"  stopColor="#6366f1" />
                     <stop offset="100%" stopColor="#4338ca" />
                   </linearGradient>
                   <filter id="glow">
@@ -102,39 +111,67 @@ export default function AuthPage() {
                           from-transparent via-accent/40 to-transparent" />
 
           <div className="p-7">
-            {/* ── Tab Switcher ── */}
-            <div className="relative flex bg-void-2 rounded-2xl p-1 mb-7
-                            border border-border">
-              {/* Active indicator */}
-              <div
-                className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-xl
-                           transition-all duration-300 ease-out"
-                style={{
-                  left: mode === 'login' ? '4px' : 'calc(50%)',
-                  background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(79,70,229,0.1) 100%)',
-                  border: '1px solid rgba(99,102,241,0.2)',
-                  boxShadow: '0 0 20px rgba(99,102,241,0.1)',
-                }}
-              />
-              {['login', 'register'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setMode(tab)}
-                  className={`relative flex-1 py-2.5 text-[13px] font-semibold
-                              rounded-xl transition-all duration-200 z-10 capitalize
-                              tracking-wide
-                              ${mode === tab
-                                ? 'text-accent-light'
-                                : 'text-txt-muted hover:text-txt-secondary'
-                              }`}
-                >
-                  {tab === 'login' ? 'Sign In' : 'Create Account'}
-                </button>
-              ))}
-            </div>
 
-            {/* ── Form ── */}
-            {mode === 'login' ? <LoginForm /> : <RegisterForm />}
+            {/* ── Tab Switcher (hidden on forgot mode) ── */}
+            {mode !== 'forgot' && (
+              <div className="relative flex bg-void-2 rounded-2xl p-1 mb-7
+                              border border-border">
+                {/* Active indicator */}
+                <div
+                  className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-xl
+                             transition-all duration-300 ease-out"
+                  style={{
+                    left: mode === 'login' ? '4px' : 'calc(50%)',
+                    background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(79,70,229,0.1) 100%)',
+                    border: '1px solid rgba(99,102,241,0.2)',
+                    boxShadow: '0 0 20px rgba(99,102,241,0.1)',
+                  }}
+                />
+                {['login', 'register'].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setMode(tab)}
+                    className={`relative flex-1 py-2.5 text-[13px] font-semibold
+                                rounded-xl transition-all duration-200 z-10 capitalize
+                                tracking-wide
+                                ${mode === tab
+                                  ? 'text-accent-light'
+                                  : 'text-txt-muted hover:text-txt-secondary'
+                                }`}
+                  >
+                    {tab === 'login' ? 'Sign In' : 'Create Account'}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* ── Forgot Header (only in forgot mode) ── */}
+            {mode === 'forgot' && (
+              <div className="mb-6">
+                <button
+                  onClick={() => setMode('login')}
+                  className="flex items-center gap-2 text-txt-muted hover:text-txt-secondary
+                             text-[13px] font-medium mb-5 transition-colors group"
+                >
+                  <svg
+                    className="w-4 h-4 transition-transform group-hover:-translate-x-0.5"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back to Sign In
+                </button>
+                <h2 className="text-white text-xl font-bold mb-1">Reset Password</h2>
+                <p className="text-txt-muted text-[13px] leading-relaxed">
+                  Enter your recovery email and we'll send you a reset link valid for 15 minutes.
+                </p>
+              </div>
+            )}
+
+            {/* ── Forms ── */}
+            {mode === 'login'    && <LoginForm    onForgot={() => setMode('forgot')} />}
+            {mode === 'register' && <RegisterForm onSwitchToLogin={() => setMode('login')} />}
+            {mode === 'forgot'   && <ForgotForm   onSuccess={() => setMode('login')} />}
           </div>
         </div>
 

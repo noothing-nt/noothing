@@ -1,82 +1,56 @@
-const CACHE_NAME = 'noothing-v1';
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-];
+const CACHE_NAME = 'noothing-v2';
+const STATIC_ASSETS = ['/', '/index.html', '/manifest.json'];
 
-// ── Install ────────────────────────────────────────────
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    })
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
 
-// ── Activate ───────────────────────────────────────────
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      )
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
 });
 
-// ── Fetch: Network First, Cache Fallback ───────────────
-self.addEventListener('fetch', (event) => {
-  // Skip non-GET and API/socket requests
-  if (
-    event.request.method !== 'GET' ||
-    event.request.url.includes('/api/') ||
-    event.request.url.includes('socket.io')
-  ) {
-    return;
-  }
+self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return;
+  if (e.request.url.includes('/api/')) return;
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Clone and cache fresh response
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, clone);
-        });
-        return response;
-      })
-      .catch(() => {
-        // Fallback to cache
-        return caches.match(event.request).then((cached) => {
-          return cached || caches.match('/index.html');
-        });
-      })
-  );
-});
-
-// ── Push Notifications (future ready) ─────────────────
-self.addEventListener('push', (event) => {
-  if (!event.data) return;
-  const data = event.data.json();
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'Noothing', {
-      body: data.body || 'You have a new message',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/badge-72.png',
-      data: { url: data.url || '/' },
-      vibrate: [100, 50, 100],
+  e.respondWith(
+    caches.match(e.request).then((cached) => {
+      const fetchPromise = fetch(e.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+          }
+          return response;
+        })
+        .catch(() => cached);
+      return cached || fetchPromise;
     })
   );
 });
 
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  event.waitUntil(
-    clients.openWindow(event.notification.data?.url || '/')
+self.addEventListener('push', (e) => {
+  const data = e.data?.json() || {};
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'Noothing', {
+      body: data.body || 'New message',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-72.png',
+      data: data.url || '/',
+      vibrate: [200, 100, 200],
+    })
   );
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(clients.openWindow(e.notification.data || '/'));
 });
