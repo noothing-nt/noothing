@@ -1,9 +1,11 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api`,
+  // It MUST look for the VITE variable first, and fallback to localhost second
+  baseURL: import.meta.env.VITE_BACKEND_URL 
+    ? `${import.meta.env.VITE_BACKEND_URL}/api` 
+    : 'http://localhost:5000/api',
   withCredentials: true,
-  timeout: 30000,
 });
 
 // Public routes that should NEVER trigger an auth redirect
@@ -26,4 +28,4 @@ api.interceptors.response.use(
   }
 );
 
-export default api;
+export default api; // <-- Only exported once at the very end!
