@@ -19,11 +19,9 @@ export default function Sidebar({ activeChatId, onSelectChat, onSwitchAccount, u
 
   return (
     <div
-      className="flex flex-col h-full flex-shrink-0 relative"
+      // FIXED: Added w-full for mobile, and locked the desktop width using md: classes
+      className="flex flex-col h-full flex-shrink-0 relative w-full md:w-[340px] md:min-w-[300px] md:max-w-[360px]"
       style={{
-        width: '340px',
-        minWidth: '300px',
-        maxWidth: '360px',
         background: 'rgba(10,10,15,0.98)',
         borderRight: '1px solid rgba(255,255,255,0.05)',
       }}
@@ -46,9 +44,9 @@ export default function Sidebar({ activeChatId, onSelectChat, onSwitchAccount, u
         {/* Avatar + Name */}
         <button
           onClick={() => navigate(`/profile/${user.username}`)}
-          className="flex items-center gap-3 group"
+          className="flex items-center gap-3 group min-w-0"
         >
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             {/* Hover glow */}
             <div
               className="absolute rounded-full opacity-0 group-hover:opacity-100
@@ -72,9 +70,9 @@ export default function Sidebar({ activeChatId, onSelectChat, onSwitchAccount, u
               />
             </div>
           </div>
-          <div className="text-left">
+          <div className="text-left min-w-0">
             <p
-              className="text-[14px] font-bold leading-tight"
+              className="text-[14px] font-bold leading-tight truncate w-full"
               style={{
                 background:           'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)',
                 WebkitBackgroundClip: 'text',
@@ -84,14 +82,14 @@ export default function Sidebar({ activeChatId, onSelectChat, onSwitchAccount, u
             >
               {user.username}
             </p>
-            <p className="text-[11px]" style={{ color: '#6366f1' }}>
+            <p className="text-[11px] truncate w-full" style={{ color: '#6366f1' }}>
               tap to edit profile
             </p>
           </div>
         </button>
 
         {/* Right icons */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {/* Multi-account */}
           {user.linkedAccounts?.length > 0 && (
             <IconBtn onClick={onSwitchAccount} label="Switch account">

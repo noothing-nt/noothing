@@ -20,25 +20,27 @@ export default function ChatHeader({ chatUser }) {
     emit('call:initiate', { recipientId: chatUser._id, callType });
   };
 
+  // FIXED: Added <p> tags with 'truncate w-full' to prevent multiline text wrapping
   const getStatus = () => {
-    if (isTyping) return <span className="text-indigo-400 text-xs animate-pulse">typing...</span>;
-    if (chatUser.isOnline) return <span className="text-green-400 text-xs">Online</span>;
+    if (isTyping) return <p className="text-indigo-400 text-xs truncate w-full animate-pulse">typing...</p>;
+    if (chatUser.isOnline) return <p className="text-green-400 text-xs truncate w-full">Online</p>;
     if (chatUser.lastSeen) {
       return (
-        <span className="text-[#505050] text-xs">
+        <p className="text-[#505050] text-xs truncate w-full">
           Last seen {formatDistanceToNowStrict(new Date(chatUser.lastSeen), { addSuffix: true })}
-        </span>
+        </p>
       );
     }
-    return <span className="text-[#505050] text-xs">Offline</span>;
+    return <p className="text-[#505050] text-xs truncate w-full">Offline</p>;
   };
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-[#0d0d0d]">
-      {/* Back Button - ADDED: md:hidden ensures this button NEVER shows on Desktop */}
+    <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-white/5 bg-[#0d0d0d]">
+      
+      {/* Back Button - md:hidden ensures it vanishes on desktop */}
       <button
         onClick={() => navigate('/')}
-        className="md:hidden text-[#606060] hover:text-white transition-colors mr-1"
+        className="md:hidden text-[#606060] hover:text-white transition-colors mr-1 flex-shrink-0"
         aria-label="Go back"
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -46,10 +48,10 @@ export default function ChatHeader({ chatUser }) {
         </svg>
       </button>
 
-      {/* Avatar + Info — clickable to view profile */}
+      {/* Avatar + Info — FIXED: Added min-w-0 flex constraints */}
       <button
         onClick={() => navigate(`/profile/${chatUser.username}`)}
-        className="flex items-center gap-3 flex-1 text-left"
+        className="flex items-center gap-3 flex-1 text-left min-w-0"
       >
         <div className="relative flex-shrink-0">
           <Avatar src={chatUser.avatar?.url} username={chatUser.username} size={38} />
@@ -57,14 +59,16 @@ export default function ChatHeader({ chatUser }) {
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#0d0d0d]" />
           )}
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-white truncate">@{chatUser.username}</p>
+        
+        {/* FIXED: This wrapper now forces the text to cut off cleanly with an ellipsis (...) */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-white truncate w-full">@{chatUser.username}</p>
           {getStatus()}
         </div>
       </button>
 
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
         <button
           onClick={() => initiateCall('audio')}
           className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/5 text-[#606060] hover:text-white transition-colors"
