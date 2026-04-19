@@ -10,6 +10,8 @@ export default defineConfig({
       includeAssets: ['favicon.ico', 'icons/*.png'],
       manifest: false, // Using our own manifest.json
       workbox: {
+        // FIXED: Increased limit to 10MB to allow ZegoCloud bundle to build
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, 
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
