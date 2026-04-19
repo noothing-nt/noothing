@@ -1,29 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
-import { useAuth } from '../context/AuthContext';
-import { useChatStore } from '../store/useChatStore'; // ADDED
+import { useAuthStore } from '../store/useAuthStore'; // ✅ correct import
+import { useChatStore } from '../store/useChatStore';
 import config from '../config';
 
 export default function CallPage() {
-  const [searchParams]       = useSearchParams();
-  const { user }             = useAuth();
-  const { sendMessage }      = useChatStore(); // ADDED: Pull in sendMessage to log the call history
-  const navigate             = useNavigate();
-  const containerRef         = useRef(null);
-  const zegoRef              = useRef(null);
-  const [error, setError]    = useState('');
+  const [searchParams]        = useSearchParams();
+  const { user }              = useAuthStore(); // ✅ fixed — was useAuth()
+  const { sendMessage }       = useChatStore();
+  const navigate              = useNavigate();
+  const containerRef          = useRef(null);
+  const zegoRef               = useRef(null);
+  const [error, setError]     = useState('');
   const [joining, setJoining] = useState(true);
 
-  // Extract variables safely from the URL query string
   const roomId     = searchParams.get('roomId');
-  const chatUserId = searchParams.get('chatUserId'); // ADDED: Used to know who to send the message to
-  const callType   = searchParams.get('type') || 'video'; // 'video' | 'voice'
+  const chatUserId = searchParams.get('chatUserId');
+  const callType   = searchParams.get('type') || 'video';
+
+  // ✅ Redirect to home if no user or no roomId
+  useEffect(() => {
+    if (!user) {
+      navigate('/auth', { replace: true });
+      return;
+    }
+    if (!roomId) {
+      navigate('/', { replace: true });
+      return;
+    }
+  }, [user, roomId, navigate]);
 
   useEffect(() => {
     if (!user || !roomId || !containerRef.current) return;
 
-    const appID       = config.ZEGO_APP_ID;
+    const appID        = config.ZEGO_APP_ID;
     const serverSecret = config.ZEGO_SERVER_SECRET;
 
     if (!appID || !serverSecret || appID === 0) {
@@ -33,7 +44,6 @@ export default function CallPage() {
     }
 
     try {
-      // Generate kit token
       const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
         appID,
         serverSecret,
@@ -47,18 +57,14 @@ export default function CallPage() {
 
       const scenario = callType === 'voice'
         ? {
-            scenario: {
-              mode: ZegoUIKitPrebuilt.OneONoneCall,
-            },
+            scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
             showPreJoinView: false,
             turnOnCameraWhenJoining: false,
             showCameraToggleButton: false,
             showAudioVideoSettingsButton: false,
           }
         : {
-            scenario: {
-              mode: ZegoUIKitPrebuilt.OneONoneCall,
-            },
+            scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
             showPreJoinView: false,
             turnOnCameraWhenJoining: true,
             turnOnMicrophoneWhenJoining: true,
@@ -67,33 +73,34 @@ export default function CallPage() {
       zp.joinRoom({
         container: containerRef.current,
         ...scenario,
-
-        // ── OLED Dark Theme ──────────────────────────
         layout: 'Auto',
         showRoomDetailsButton: false,
         showInviteToCohostButton: false,
         showRemoveUserButton: false,
 
-        // Custom dark UI via container styling
         onJoinRoom: () => setJoining(false),
 
         onLeaveRoom: () => {
-          // ADDED: Send "Call Ended" message to the database
           if (chatUserId) {
-            sendMessage(chatUserId, { text: `${callType === 'voice' ? 'Voice' : 'Video'} Call Ended`, messageType: 'call' });
+            sendMessage(chatUserId, {
+              text: `${callType === 'voice' ? 'Voice' : 'Video'} Call Ended`,
+              messageType: 'call',
+            });
           }
           navigate(-1);
         },
 
         onUserLeave: () => {
-          // ADDED: Send "Call Ended" message if the other person hangs up first
           if (chatUserId) {
-            sendMessage(chatUserId, { text: `${callType === 'voice' ? 'Voice' : 'Video'} Call Ended`, messageType: 'call' });
+            sendMessage(chatUserId, {
+              text: `${callType === 'voice' ? 'Voice' : 'Video'} Call Ended`,
+              messageType: 'call',
+            });
           }
           setTimeout(() => navigate(-1), 1500);
         },
 
-        onCallEnd: (room, reason) => {
+        onCallEnd: () => {
           navigate(-1);
         },
       });
@@ -106,39 +113,28 @@ export default function CallPage() {
     return () => {
       zegoRef.current?.destroy?.();
     };
-  }, [user, roomId, callType, chatUserId, navigate]);
+  }, [user, roomId, callType, chatUserId, navigate, sendMessage]);
 
-  // ── Error state ────────────────────────────────────
+  // ── Error state ───────────────────────────────────────────────────────────
   if (error) {
     return (
-      <div
-        className="flex flex-col items-center justify-center h-[100dvh] gap-6"
-        style={{ background: '#080808' }}
-      >
-        <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center"
-          style={{
-            background: 'rgba(239,68,68,0.1)',
-            border: '1px solid rgba(239,68,68,0.3)',
-          }}
-        >
-          <svg className="w-8 h-8 text-red-400" fill="none"
-            viewBox="0 0 24 24" stroke="currentColor">
+      <div className="flex flex-col items-center justify-center h-[100dvh] gap-6"
+        style={{ background: '#080808' }}>
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+          style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+          <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
         <div className="text-center">
-          <p className="text-txt-primary font-semibold text-lg">Call Failed</p>
-          <p className="text-txt-muted text-sm mt-1">{error}</p>
+          <p className="text-white font-semibold text-lg">Call Failed</p>
+          <p className="text-[#808080] text-sm mt-1">{error}</p>
         </div>
         <button
           onClick={() => navigate(-1)}
           className="px-6 py-3 rounded-xl text-sm font-semibold text-white"
-          style={{
-            background: 'linear-gradient(135deg, #6366f1, #4338ca)',
-            boxShadow: '0 4px 20px rgba(99,102,241,0.3)',
-          }}
+          style={{ background: 'linear-gradient(135deg, #6366f1, #4338ca)', boxShadow: '0 4px 20px rgba(99,102,241,0.3)' }}
         >
           Go Back
         </button>
@@ -146,60 +142,43 @@ export default function CallPage() {
     );
   }
 
+  // ── Main render ───────────────────────────────────────────────────────────
   return (
-    <div
-      className="relative h-[100dvh] w-full overflow-hidden"
-      style={{ background: '#080808' }}
-    >
+    <div className="relative h-[100dvh] w-full overflow-hidden"
+      style={{ background: '#080808' }}>
+
       {/* Loading overlay */}
       {joining && (
-        <div
-          className="absolute inset-0 z-50 flex flex-col items-center
-                     justify-center gap-6"
-          style={{ background: '#080808' }}
-        >
-          <div
-            className="w-20 h-20 rounded-3xl flex items-center justify-center"
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6"
+          style={{ background: '#080808' }}>
+          <div className="w-20 h-20 rounded-3xl flex items-center justify-center"
             style={{
               background: 'linear-gradient(145deg, #1a1a2e, #13131f)',
               border: '1px solid rgba(99,102,241,0.3)',
               boxShadow: '0 0 40px rgba(99,102,241,0.2)',
-            }}
-          >
-            <span className="text-3xl">
-              {callType === 'voice' ? '🎙️' : '📹'}
-            </span>
+            }}>
+            <span className="text-3xl">{callType === 'voice' ? '🎙️' : '📹'}</span>
           </div>
           <div className="text-center space-y-2">
-            <p className="text-txt-primary font-semibold text-lg">
+            <p className="text-white font-semibold text-lg">
               {callType === 'voice' ? 'Starting Voice Call' : 'Starting Video Call'}
             </p>
-            <p className="text-txt-muted text-sm">Connecting securely...</p>
+            <p className="text-[#808080] text-sm">Connecting securely...</p>
           </div>
           <div className="flex gap-1.5">
             {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                className="typing-dot"
-                style={{ animationDelay: `${i * 0.2}s` }}
-              />
+              <span key={i} className="typing-dot" style={{ animationDelay: `${i * 0.2}s` }} />
             ))}
           </div>
         </div>
       )}
 
-      {/* ZegoCloud container — styled with CSS overrides */}
-      <div
-        ref={containerRef}
-        className="w-full h-full"
-        id="zego-container"
-      />
+      {/* ZegoCloud container */}
+      <div ref={containerRef} className="w-full h-full" id="zego-container" />
 
-      {/* Inject OLED theme overrides */}
+      {/* OLED dark theme overrides */}
       <style>{`
-        #zego-container > div {
-          background: #080808 !important;
-        }
+        #zego-container > div { background: #080808 !important; }
         .zego-room-bottom-bar {
           background: rgba(14,14,14,0.9) !important;
           backdrop-filter: blur(20px) !important;
@@ -210,9 +189,7 @@ export default function CallPage() {
           backdrop-filter: blur(20px) !important;
           border-bottom: 1px solid rgba(255,255,255,0.06) !important;
         }
-        .zego-room-main-area {
-          background: #080808 !important;
-        }
+        .zego-room-main-area { background: #080808 !important; }
         .zego-video-player-container {
           background: #111111 !important;
           border-radius: 16px !important;
@@ -237,10 +214,7 @@ export default function CallPage() {
           background: linear-gradient(135deg, #1c1c2e, #13131f) !important;
           border: 1px solid rgba(99,102,241,0.2) !important;
         }
-        .zego-user-name {
-          color: #f0f0f0 !important;
-          font-family: 'Inter', sans-serif !important;
-        }
+        .zego-user-name { color: #f0f0f0 !important; }
       `}</style>
     </div>
   );
