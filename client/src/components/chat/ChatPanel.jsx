@@ -6,7 +6,6 @@ import { useNotificationStore }  from '../../store/useNotificationStore';
 import ChatPanelHeader           from './ChatPanelHeader';
 import MessageList               from './MessageList';
 import MessageInput              from './MessageInput';
-import IncomingCall              from './IncomingCall';
 import api                       from '../../lib/axios';
 
 export default function ChatPanel({ chatUserId, onClose }) {
@@ -159,7 +158,6 @@ export default function ChatPanel({ chatUserId, onClose }) {
 
       <MessageInput chatUserId={chatUserId} chatUser={chatUser} />
 
-      {incomingCall && <IncomingCall callData={incomingCall} />}
     </div>
   );
 }
