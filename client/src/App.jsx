@@ -40,7 +40,7 @@ const GuestRoute = ({ children }) => {
 };
 
 export default function App() {
-  const { user, checkAuth } = useAuthStore(); // Added user here
+  const { user, checkAuth } = useAuthStore();
   
   useEffect(() => { 
     checkAuth(); 
@@ -65,9 +65,7 @@ export default function App() {
         }}
       />
       
-      {/* FIXED: We only show IncomingCall if a user exists. 
-          This prevents the "useSocket" error on the Login/Auth screens.
-      */}
+      {/* Show IncomingCall global listener only if user is logged in */}
       {user && <IncomingCall />}
 
       <Routes>
@@ -77,12 +75,12 @@ export default function App() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
 
-        {/* Guest */}
-        <Route path="/auth"              element={<GuestRoute><AuthPage /></GuestRoute>} />
-        <Route path="/forgot-password"   element={<GuestRoute><ForgotPassword /></ForgotPassword>} />
+        {/* Guest Routes - Fixed Syntax Below */}
+        <Route path="/auth" element={<GuestRoute><AuthPage /></GuestRoute>} />
+        <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
         <Route path="/reset-password/:token" element={<GuestRoute><ResetPassword /></GuestRoute>} />
 
-        {/* Home */}
+        {/* Private Routes */}
         <Route path="/" element={
           <PrivateRoute><HomePage /></PrivateRoute>
         } />
