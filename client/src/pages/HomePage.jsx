@@ -64,7 +64,8 @@ export default function HomePage() {
       </div>
 
       {/* ── LEFT SIDEBAR ── */}
-      <div className="relative z-10 h-full flex-shrink-0">
+      {/* ADDED: w-full md:w-auto to take full width on mobile, and hidden logic to disappear when a chat is open */}
+      <div className={`relative z-10 h-full flex-shrink-0 w-full md:w-auto ${activeChatId ? 'hidden md:block' : 'block'}`}>
         <Sidebar
           activeChatId={activeChatId}
           onSelectChat={handleSelectChat}
@@ -74,7 +75,8 @@ export default function HomePage() {
       </div>
 
       {/* ── RIGHT CHAT PANEL ── */}
-      <div className="flex-1 flex flex-col min-w-0 relative z-10 bg-[#0a0a0f]">
+      {/* ADDED: hidden md:flex so it hides on mobile when NO chat is selected, but always shows on desktop */}
+      <div className={`flex-1 flex-col min-w-0 relative z-10 bg-[#0a0a0f] ${!activeChatId ? 'hidden md:flex' : 'flex'}`}>
         {activeChatId ? (
           <ChatPanel
             key={activeChatId} // Forces remount when chat changes

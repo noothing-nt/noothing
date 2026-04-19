@@ -35,10 +35,10 @@ export default function ChatHeader({ chatUser }) {
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-[#0d0d0d]">
-      {/* Back */}
+      {/* Back Button - ADDED: md:hidden ensures this button NEVER shows on Desktop */}
       <button
         onClick={() => navigate('/')}
-        className="text-[#606060] hover:text-white transition-colors mr-1"
+        className="md:hidden text-[#606060] hover:text-white transition-colors mr-1"
         aria-label="Go back"
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -80,7 +80,7 @@ export default function ChatHeader({ chatUser }) {
           aria-label="Video call"
         >
           <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M4 8h8a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4a2 2 0 012-2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M4 8h8a2 2 0 012 2v4a2 2 0 01-2-2H4a2 2 0 01-2-2v-4a2 2 0 012-2z" />
           </svg>
         </button>
         <button
