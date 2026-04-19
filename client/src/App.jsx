@@ -6,6 +6,9 @@ import { useAuthStore } from './store/useAuthStore';
 import { useEffect } from 'react';
 import CallPage from './pages/CallPage';
 
+// ADDED: Global Incoming Call Component
+import IncomingCall from './components/shared/IncomingCall';
+
 import AuthPage       from './pages/AuthPage';
 import HomePage       from './pages/HomePage';
 import ProfilePage    from './pages/ProfilePage';
@@ -58,6 +61,10 @@ export default function App() {
           error:   { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
         }}
       />
+      
+      {/* ADDED: Global Call Listener - Lives outside of Routes so it shows on every page */}
+      <IncomingCall />
+
       <Routes>
         <Route path="/call" element={<CallPage />} />
 

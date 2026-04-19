@@ -1,20 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 import { useAuth } from '../context/AuthContext';
+import { useChatStore } from '../store/useChatStore'; // ADDED
 import config from '../config';
 
 export default function CallPage() {
-  const { roomId }           = useParams();
   const [searchParams]       = useSearchParams();
   const { user }             = useAuth();
+  const { sendMessage }      = useChatStore(); // ADDED: Pull in sendMessage to log the call history
   const navigate             = useNavigate();
   const containerRef         = useRef(null);
   const zegoRef              = useRef(null);
   const [error, setError]    = useState('');
   const [joining, setJoining] = useState(true);
 
-  const callType = searchParams.get('type') || 'video'; // 'video' | 'voice'
+  // Extract variables safely from the URL query string
+  const roomId     = searchParams.get('roomId');
+  const chatUserId = searchParams.get('chatUserId'); // ADDED: Used to know who to send the message to
+  const callType   = searchParams.get('type') || 'video'; // 'video' | 'voice'
 
   useEffect(() => {
     if (!user || !roomId || !containerRef.current) return;
@@ -74,10 +78,18 @@ export default function CallPage() {
         onJoinRoom: () => setJoining(false),
 
         onLeaveRoom: () => {
+          // ADDED: Send "Call Ended" message to the database
+          if (chatUserId) {
+            sendMessage(chatUserId, { text: `${callType === 'voice' ? 'Voice' : 'Video'} Call Ended`, messageType: 'call' });
+          }
           navigate(-1);
         },
 
         onUserLeave: () => {
+          // ADDED: Send "Call Ended" message if the other person hangs up first
+          if (chatUserId) {
+            sendMessage(chatUserId, { text: `${callType === 'voice' ? 'Voice' : 'Video'} Call Ended`, messageType: 'call' });
+          }
           setTimeout(() => navigate(-1), 1500);
         },
 
@@ -94,7 +106,7 @@ export default function CallPage() {
     return () => {
       zegoRef.current?.destroy?.();
     };
-  }, [user, roomId, callType, navigate]);
+  }, [user, roomId, callType, chatUserId, navigate]);
 
   // ── Error state ────────────────────────────────────
   if (error) {

@@ -80,6 +80,28 @@ export default function MessageBubble({ message, isMine, chatUserId }) {
   };
 
   const renderContent = () => {
+    // ADDED: Special UI for Call Messages
+    if (message.messageType === 'call') {
+      const isMissed = message.text?.toLowerCase().includes('missed');
+      return (
+        <div className="flex items-center gap-3 pr-2">
+          <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0
+            ${isMissed ? 'bg-red-500/10 text-red-400' : 'bg-indigo-500/10 text-indigo-400'}`}
+          >
+            {isMissed ? '📵' : '📞'}
+          </div>
+          <div>
+            <p className={`text-[13px] font-semibold ${isMissed ? 'text-red-400' : '#ffffff'}`}>
+              {message.text}
+            </p>
+            <p className="text-[10px]" style={{ color: isMine ? 'rgba(255,255,255,0.6)' : '#606070' }}>
+              Tap to call back
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     if (message.messageType === 'image' && message.image?.url) {
       return (
         <a href={message.image.url} target="_blank" rel="noreferrer"
