@@ -10,6 +10,7 @@
     "lint": "eslint src --ext .js,.jsx"
   },
   "dependencies": {
+    "@zegocloud/zego-uikit-prebuilt": "^2.12.1",
     "axios": "^1.7.2",
     "date-fns": "^3.6.0",
     "react": "^18.3.1",
