@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/useAuthStore';
 import { useEffect } from 'react';
+import CallPage from './pages/CallPage';
 
 import AuthPage       from './pages/AuthPage';
 import HomePage       from './pages/HomePage';
@@ -58,6 +59,8 @@ export default function App() {
         }}
       />
       <Routes>
+        <Route path="/call" element={<CallPage />} />
+
         {/* Public Legal Pages - Anyone can see these */}
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
