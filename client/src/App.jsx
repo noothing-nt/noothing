@@ -6,7 +6,7 @@ import { useAuthStore } from './store/useAuthStore';
 import { useEffect } from 'react';
 import CallPage from './pages/CallPage';
 
-// ADDED: Global Incoming Call Component
+// Global Incoming Call Component
 import IncomingCall from './components/shared/IncomingCall';
 
 import AuthPage       from './pages/AuthPage';
@@ -40,8 +40,11 @@ const GuestRoute = ({ children }) => {
 };
 
 export default function App() {
-  const { checkAuth } = useAuthStore();
-  useEffect(() => { checkAuth(); }, [checkAuth]);
+  const { user, checkAuth } = useAuthStore(); // Added user here
+  
+  useEffect(() => { 
+    checkAuth(); 
+  }, [checkAuth]);
 
   return (
     <BrowserRouter>
@@ -62,22 +65,24 @@ export default function App() {
         }}
       />
       
-      {/* ADDED: Global Call Listener - Lives outside of Routes so it shows on every page */}
-      <IncomingCall />
+      {/* FIXED: We only show IncomingCall if a user exists. 
+          This prevents the "useSocket" error on the Login/Auth screens.
+      */}
+      {user && <IncomingCall />}
 
       <Routes>
         <Route path="/call" element={<CallPage />} />
 
-        {/* Public Legal Pages - Anyone can see these */}
+        {/* Public Legal Pages */}
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
 
         {/* Guest */}
         <Route path="/auth"              element={<GuestRoute><AuthPage /></GuestRoute>} />
-        <Route path="/forgot-password"   element={<GuestRoute><ForgotPassword /></GuestRoute>} />
+        <Route path="/forgot-password"   element={<GuestRoute><ForgotPassword /></ForgotPassword>} />
         <Route path="/reset-password/:token" element={<GuestRoute><ResetPassword /></GuestRoute>} />
 
-        {/* Home — handles both / and /chat/:userId */}
+        {/* Home */}
         <Route path="/" element={
           <PrivateRoute><HomePage /></PrivateRoute>
         } />
@@ -85,7 +90,7 @@ export default function App() {
           <PrivateRoute><HomePage /></PrivateRoute>
         } />
 
-        {/* Profile & Settings stay full page */}
+        {/* Profile & Settings */}
         <Route path="/profile/:username" element={
           <PrivateRoute><ProfilePage /></PrivateRoute>
         } />
